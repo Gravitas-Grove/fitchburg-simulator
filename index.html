@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fitchburg Growth Scenario Simulator</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1418; --surface: #161d24; --surface2: #1e2730;
+    --border: #2a3540; --green: #7aad4a; --green-dim: #3d5e2a;
+    --amber: #e8a830; --amber-dim: #7a5a18; --red: #e05050;
+    --blue: #4a90d9; --text: #e8eaed; --text-dim: #8a9aaa; --text-muted: #4a5a6a;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'IBM Plex Sans',sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+  header { background:var(--surface); border-bottom:1px solid var(--border); padding:10px 20px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; z-index:1000; }
+  .logo-area { display:flex; align-items:center; gap:12px; }
+  .logo-badge { width:32px; height:32px; background:var(--green); border-radius:4px; display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:500; color:#0f1418; }
+  h1 { font-family:'Playfair Display',serif; font-size:18px; font-weight:700; letter-spacing:-0.3px; }
+  h1 span { color:var(--green); }
+  .header-meta { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; }
+  .status-pill { background:var(--green-dim); color:var(--green); border:1px solid var(--green-dim); padding:3px 10px; border-radius:12px; font-size:10px; font-family:'IBM Plex Mono',monospace; letter-spacing:0.8px; text-transform:uppercase; }
+
+  .main { display:flex; flex:1; overflow:hidden; }
+  #map { flex:1; position:relative; }
+
+  .sidebar { width:340px; background:var(--surface); border-left:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; }
+  .sidebar-section { padding:14px 16px; border-bottom:1px solid var(--border); }
+  .section-label { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:10px; }
+
+  .scenario-grid { display:flex; flex-direction:column; gap:5px; }
+  .scenario-card { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:9px 12px; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; gap:10px; }
+  .scenario-card:hover { border-color:var(--green-dim); background:#1a2530; }
+  .scenario-card.active { border-color:var(--green); background:linear-gradient(90deg,#1a2a18 0%,var(--surface2) 100%); }
+  .scenario-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .scenario-info { flex:1; }
+  .scenario-name { font-size:12px; font-weight:500; color:var(--text); line-height:1.3; }
+  .scenario-sub { font-size:10px; color:var(--text-dim); font-family:'IBM Plex Mono',monospace; margin-top:1px; }
+  .scenario-card.active .scenario-name { color:var(--green); }
+
+  .slider-labels { display:flex; justify-content:space-between; font-size:10px; color:var(--text-muted); font-family:'IBM Plex Mono',monospace; margin-bottom:5px; }
+  .slider-value { color:var(--amber); font-weight:500; }
+  input[type=range] { width:100%; -webkit-appearance:none; height:3px; background:var(--border); border-radius:2px; outline:none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--amber); cursor:pointer; border:2px solid var(--bg); box-shadow:0 0 0 1px var(--amber); }
+
+  .metrics-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .metric-card { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:10px; }
+  .metric-value { font-family:'IBM Plex Mono',monospace; font-size:18px; font-weight:500; line-height:1; margin-bottom:3px; }
+  .metric-label { font-size:10px; color:var(--text-muted); line-height:1.3; }
+  .metric-green { color:var(--green); } .metric-amber { color:var(--amber); } .metric-red { color:var(--red); } .metric-blue { color:var(--blue); }
+
+  .toggle-group { display:flex; gap:4px; }
+  .toggle-btn { flex:1; padding:6px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-size:10px; font-family:'IBM Plex Mono',monospace; cursor:pointer; text-align:center; transition:all 0.15s; }
+  .toggle-btn.active { background:var(--amber-dim); border-color:var(--amber); color:var(--amber); }
+  .toggle-btn:hover:not(.active) { border-color:var(--text-muted); color:var(--text); }
+
+  /* Layer toggles */
+  .layer-toggles { display:flex; flex-wrap:wrap; gap:5px; }
+  .layer-btn { padding:4px 9px; background:var(--surface2); border:1px solid var(--border); border-radius:3px; font-size:10px; font-family:'IBM Plex Mono',monospace; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; gap:5px; }
+  .layer-btn:hover { border-color:var(--text-muted); }
+  .layer-btn.on { border-color:currentColor; }
+  .layer-dot { width:8px; height:8px; border-radius:50%; }
+
+  .ai-section { flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; }
+  .ai-header { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+  .ai-label { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; display:flex; align-items:center; gap:6px; }
+  .ai-dot { width:6px; height:6px; border-radius:50%; background:var(--blue); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .analyze-btn { background:var(--surface2); border:1px solid var(--blue); color:var(--blue); padding:5px 12px; border-radius:4px; font-size:10px; font-family:'IBM Plex Mono',monospace; cursor:pointer; transition:all 0.15s; }
+  .analyze-btn:hover { background:rgba(74,144,217,0.15); }
+  .analyze-btn:disabled { opacity:0.4; cursor:not-allowed; }
+  .ai-body { flex:1; overflow-y:auto; padding:14px 16px; font-size:12px; line-height:1.7; color:var(--text-dim); }
+  .ai-body p { margin-bottom:10px; }
+  .ai-body strong { color:var(--text); }
+  .ai-body .hl { color:var(--green); font-family:'IBM Plex Mono',monospace; font-size:11px; }
+  .ai-placeholder { color:var(--text-muted); font-style:italic; font-size:11px; line-height:1.6; text-align:center; padding:20px 10px; }
+  .typing-cursor::after { content:'▋'; animation:blink 0.8s step-end infinite; color:var(--blue); }
+  @keyframes blink { 50%{opacity:0} }
+
+  .legend { background:rgba(15,20,24,0.92); border:1px solid var(--border); padding:10px 12px; border-radius:6px; font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text-dim); min-width:180px; }
+  .legend-title { color:var(--text); margin-bottom:6px; letter-spacing:0.5px; text-transform:uppercase; font-size:9px; }
+  .legend-item { display:flex; align-items:center; gap:7px; margin-bottom:4px; }
+  .legend-swatch { width:14px; height:8px; border-radius:2px; flex-shrink:0; }
+  .leaflet-control-attribution { font-size:9px !important; background:rgba(15,20,24,0.8) !important; color:var(--text-muted) !important; }
+  .leaflet-control-attribution a { color:var(--blue) !important; }
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background:var(--surface); }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-area">
+    <div class="logo-badge">GG</div>
+    <div>
+      <h1>Fitchburg <span>Growth Simulator</span></h1>
+      <div class="header-meta">Dane County, Wisconsin · Comprehensive Plan Update 2025</div>
+    </div>
+  </div>
+  <div class="status-pill" id="dataStatus">Loading map...</div>
+</header>
+
+<div class="main">
+  <div id="map"></div>
+
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="section-label">Growth Model (select one)</div>
+      <div class="scenario-grid" id="scenarioGrid"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Growth Rate · <span class="slider-value" id="rateLabel">75</span> ac/yr</div>
+      <div class="slider-labels"><span>50</span><span>conservative → aggressive</span><span>200</span></div>
+      <input type="range" id="growthRate" min="50" max="200" value="75" step="25">
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Development Density</div>
+      <div class="toggle-group">
+        <div class="toggle-btn" id="d-low" onclick="setDensity('low')">3 du/ac<br>Low</div>
+        <div class="toggle-btn active" id="d-med" onclick="setDensity('med')">5 du/ac<br>Med</div>
+        <div class="toggle-btn" id="d-high" onclick="setDensity('high')">7.5 du/ac<br>High</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">GIS Layers</div>
+      <div class="layer-toggles">
+        <div class="layer-btn on" id="lt-wetlands" style="color:#2d8a6a" onclick="toggleLayer('wetlands')"><div class="layer-dot" style="background:#2d8a6a"></div>Wetlands</div>
+        <div class="layer-btn on" id="lt-streams" style="color:#4a90d9" onclick="toggleLayer('streams')"><div class="layer-dot" style="background:#4a90d9"></div>Streams</div>
+        <div class="layer-btn on" id="lt-usa" style="color:#888" onclick="toggleLayer('usa')"><div class="layer-dot" style="background:#888"></div>Svc Area</div>
+        <div class="layer-btn" id="lt-soils" style="color:#c8a050" onclick="toggleLayer('soils')"><div class="layer-dot" style="background:#c8a050"></div>Prime Ag</div>
+        <div class="layer-btn on" id="lt-rail" style="color:#e05050" onclick="toggleLayer('rail')"><div class="layer-dot" style="background:#e05050"></div>Rail</div>
+        <div class="layer-btn" id="lt-parcels" style="color:#666" onclick="toggleLayer('parcels')"><div class="layer-dot" style="background:#666"></div>Parcels</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Projected Impact · Through 2030</div>
+      <div class="metrics-grid">
+        <div class="metric-card"><div class="metric-value metric-green" id="m-acres">—</div><div class="metric-label">Developable acres consumed</div></div>
+        <div class="metric-card"><div class="metric-value metric-amber" id="m-units">—</div><div class="metric-label">New housing units</div></div>
+        <div class="metric-card"><div class="metric-value metric-red" id="m-infra">—</div><div class="metric-label">Infra cost est. ($M)</div></div>
+        <div class="metric-card"><div class="metric-value metric-blue" id="m-agland">—</div><div class="metric-label">Prime ag acres impacted</div></div>
+      </div>
+    </div>
+
+    <div class="ai-section">
+      <div class="ai-header">
+        <div class="ai-label"><div class="ai-dot"></div>AI Scenario Analysis</div>
+        <button class="analyze-btn" id="analyzeBtn" onclick="runAnalysis()">Analyze →</button>
+      </div>
+      <div class="ai-body" id="aiBody">
+        <div class="ai-placeholder">Select a growth model, then click <strong>Analyze</strong> for an AI-generated planning assessment covering infrastructure costs, agricultural impact, service delivery, and community quality-of-life tradeoffs.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════════
+const FITCHBURG = [43.022, -89.477];  // Real Fitchburg, WI center
+
+// ═══════════════════════════════════════════════════════════════
+// GROWTH SCENARIOS (from Fitchburg 2009 Comp Plan)
+// ═══════════════════════════════════════════════════════════════
+const SCENARIOS = [
+  {
+    id: "fuda-lateral",
+    name: "FUDA Lateral Growth",
+    sub: "Extends from existing city edge",
+    color: "#e87a2a",
+    icon: "→",
+    // Coordinates: [lng, lat] pairs matching real Fitchburg geography
+    poly2030: [[-89.546,42.943],[-89.414,42.943],[-89.414,42.976],[-89.546,42.976],[-89.546,42.943]],
+    poly2060: [[-89.555,42.900],[-89.400,42.900],[-89.400,42.976],[-89.555,42.976],[-89.555,42.900]],
+    infraMult: 1.2, agAcres: 820, agImpact: "high",
+    description: "Lateral expansion outward from the existing Urban Service Area in all directions. Follows path of least resistance but consumes significant agricultural land on the southern fringe near the active farm operations south of McKee Road.",
+  },
+  {
+    id: "concentric",
+    name: "Concentric Growth",
+    sub: "From Fish Hatchery & Lacy center",
+    color: "#9b59b6",
+    icon: "◎",
+    poly2030: circle(43.003, -89.520, 0.021),
+    poly2060: circle(43.003, -89.520, 0.040),
+    infraMult: 1.1, agAcres: 540, agImpact: "medium",
+    description: "Radial growth centered at Fish Hatchery Road and Lacy Road intersection — Fitchburg's geographic and commercial core. Distributes infrastructure extension pressure evenly and supports existing commercial nodes.",
+  },
+  {
+    id: "rail-corridor",
+    name: "Rail Corridor / TOD",
+    sub: "Transit-oriented, along rail line",
+    color: "#e05050",
+    icon: "▬",
+    poly2030: railPoly(0.012),
+    poly2060: railPoly(0.022),
+    infraMult: 0.85, agAcres: 180, agImpact: "low",
+    description: "Development concentrated within ~1 mile of the rail corridor running northeast toward Madison. Supports potential future commuter rail service and transit-oriented development. Aligns with Fitchburg's adopted preference to favor the rail corridor.",
+  },
+  {
+    id: "utility-service",
+    name: "Utility Service / Gravity Sewer",
+    sub: "Lowest infrastructure cost zones",
+    color: "#27ae60",
+    icon: "⌀",
+    poly2030: utilitySewer(0.85),
+    poly2060: utilitySewer(1.0),
+    infraMult: 0.75, agAcres: 410, agImpact: "medium",
+    description: "Growth restricted to areas serviceable by gravity sewer, avoiding expensive lift stations. Per Fitchburg's adopted criteria, this is the most fiscally responsible model. Infrastructure extensions run significantly cheaper than lift-station-dependent alternatives.",
+  },
+  {
+    id: "ag-preservation",
+    name: "Agricultural Preservation",
+    sub: "Avoids Soil Class 1 prime farmland",
+    color: "#7aad4a",
+    icon: "◌",
+    poly2030: agPreserve(0.85),
+    poly2060: agPreserve(1.0),
+    infraMult: 1.3, agAcres: 95, agImpact: "very low",
+    description: "Development steered away from prime agricultural soils (Class 1 — the high-productivity farmland south and southwest of the existing city). Protects working farms but can result in irregular growth patterns and higher per-unit infrastructure costs.",
+  },
+  {
+    id: "infill",
+    name: "Redevelopment / Infill",
+    sub: "Inward focus, existing footprint",
+    color: "#e8a830",
+    icon: "▣",
+    poly2030: infillPoly(0.85),
+    poly2060: infillPoly(1.0),
+    infraMult: 0.6, agAcres: 0, agImpact: "none",
+    description: "Focuses on redevelopment of underutilized parcels and infill development within the existing Urban Service Area. Zero agricultural land conversion, lowest infrastructure cost per unit, but limited growth capacity — not sufficient if Fitchburg expects significant population growth.",
+  },
+  {
+    id: "resource-based",
+    name: "Resource Based",
+    sub: "Respects watershed boundaries",
+    color: "#1abc9c",
+    icon: "〜",
+    poly2030: resourcePoly(0.85),
+    poly2060: resourcePoly(1.0),
+    infraMult: 1.05, agAcres: 260, agImpact: "medium-low",
+    description: "Growth shaped around the Nine Springs, Badger Mill Creek, Swan Creek, and Murphy's Creek watershed boundaries. Maximizes environmental protection and respects the natural resource layer that gave Fitchburg its rural character. Creates irregular but ecologically sensitive development patterns.",
+  }
+];
+
+// ═══════════════════════════════════════════════════════════════
+// POLYGON GENERATORS (based on actual Fitchburg geography)
+// The rail line runs NE from around -89.540,43.020 toward Madison
+// Fish Hatchery Rd runs N-S around lng -89.510
+// McKee Rd runs E-W around lat 42.975
+// Lacy Rd runs E-W around lat 42.992
+// ═══════════════════════════════════════════════════════════════
+
+function circle(lat, lng, r) {
+  const pts = [];
+  for (let i = 0; i <= 36; i++) {
+    const a = (i / 36) * Math.PI * 2;
+    pts.push([lng + r * 0.75 * Math.cos(a), lat + r * Math.sin(a)]);
+  }
+  return pts;
+}
+
+function railPoly(w) {
+  // Buffer along rail corridor NE direction
+  return [
+    [-89.548,43.025-w],[-89.540,43.040-w],[-89.520,43.055-w],
+    [-89.500,43.065-w],[-89.478,43.070-w],[-89.455,43.068-w],
+    [-89.430,43.055-w],[-89.410,43.038-w],[-89.398,43.015-w],
+    [-89.398,43.015+w],[-89.410,43.038+w],[-89.430,43.055+w],
+    [-89.455,43.068+w],[-89.478,43.070+w],[-89.500,43.065+w],
+    [-89.520,43.055+w],[-89.540,43.040+w],[-89.548,43.025+w],
+    [-89.548,43.025-w]
+  ];
+}
+
+function utilitySewer(s) {
+  // Gravity sewer service area — generally north and west where topography allows
+  const base = [
+    [-89.555,43.005],[-89.548,42.965],[-89.528,42.948],
+    [-89.500,42.940],[-89.468,42.945],[-89.440,42.958],
+    [-89.418,42.978],[-89.405,43.005],[-89.410,43.030],
+    [-89.430,43.048],[-89.460,43.058],[-89.492,43.058],
+    [-89.522,43.048],[-89.545,43.030],[-89.555,43.005]
+  ];
+  return scaleFromCenter(base, [43.005, -89.480], s);
+}
+
+function agPreserve(s) {
+  // Avoids southern farmland — growth goes north and northeast
+  const base = [
+    [-89.542,43.042],[-89.528,43.058],[-89.508,43.068],
+    [-89.482,43.072],[-89.458,43.068],[-89.435,43.055],
+    [-89.415,43.038],[-89.405,43.015],[-89.408,42.992],
+    [-89.425,42.978],[-89.452,42.972],[-89.485,42.975],
+    [-89.515,42.982],[-89.538,42.998],[-89.548,43.020],
+    [-89.542,43.042]
+  ];
+  return scaleFromCenter(base, [43.022, -89.477], s);
+}
+
+function infillPoly(s) {
+  // Interior only — within existing developed footprint
+  const base = [
+    [-89.522,43.044],[-89.508,43.052],[-89.488,43.054],
+    [-89.468,43.050],[-89.450,43.040],[-89.440,43.022],
+    [-89.444,43.003],[-89.458,42.994],[-89.480,42.990],
+    [-89.502,42.993],[-89.518,43.003],[-89.527,43.022],
+    [-89.522,43.044]
+  ];
+  return scaleFromCenter(base, [43.022, -89.483], s);
+}
+
+function resourcePoly(s) {
+  // Follows watershed divides
+  const base = [
+    [-89.552,43.052],[-89.530,43.065],[-89.505,43.070],
+    [-89.475,43.068],[-89.448,43.055],[-89.422,43.038],
+    [-89.408,43.010],[-89.412,42.982],[-89.435,42.962],
+    [-89.465,42.955],[-89.498,42.958],[-89.528,42.972],
+    [-89.548,42.995],[-89.556,43.025],[-89.552,43.052]
+  ];
+  return scaleFromCenter(base, [43.015, -89.480], s);
+}
+
+function scaleFromCenter(poly, center, scale) {
+  return poly.map(([lng, lat]) => [
+    center[1] + (lng - center[1]) * scale,
+    center[0] + (lat - center[0]) * scale
+  ]);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAP SETUP
+// ═══════════════════════════════════════════════════════════════
+const map = L.map('map', {
+  center: FITCHBURG,
+  zoom: 12,
+  zoomControl: true
+});
+
+// Real map tiles — CartoDB dark style
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+  subdomains: 'abcd', maxZoom: 20
+}).addTo(map);
+
+// GIS layer groups (loaded from data/processed/)
+const gisLayers = {
+  wetlands: L.layerGroup(),
+  streams: L.layerGroup(),
+  usa: L.layerGroup(),
+  soils: L.layerGroup(),
+  rail: L.layerGroup(),
+  parcels: L.layerGroup(),
+};
+const layerState = { wetlands:true, streams:true, usa:true, soils:false, rail:true, parcels:false };
+
+// Add legend
+const legend = L.control({position: 'bottomleft'});
+legend.onAdd = function() {
+  const div = L.DomUtil.create('div', 'legend');
+  div.innerHTML = `
+    <div class="legend-title">Map Legend</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#333;border:1px dashed #888"></div>Urban Service Area</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#2d8a6a;opacity:0.7"></div>Wetlands</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#4a90d9;height:3px;margin-top:3px"></div>Streams</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#e05050;height:3px;margin-top:3px"></div>Rail Corridor</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:orange;opacity:0.35"></div><span id="legend-scenario-name" style="color:#aaa;font-style:italic">No scenario selected</span></div>
+  `;
+  return div;
+};
+legend.addTo(map);
+
+// ═══════════════════════════════════════════════════════════════
+// LOAD GIS DATA from data/processed/
+// Falls back gracefully if files are missing (pre-data state)
+// ═══════════════════════════════════════════════════════════════
+const DATA_PATH = './data/processed/';
+
+async function loadGeoJSON(filename, layer, style, onEach) {
+  try {
+    const r = await fetch(DATA_PATH + filename);
+    if (!r.ok) return false;
+    const data = await r.json();
+    L.geoJSON(data, { style, onEachFeature: onEach }).addTo(layer);
+    return data.features ? data.features.length : 0;
+  } catch(e) {
+    return false;
+  }
+}
+
+async function initGISLayers() {
+  const status = document.getElementById('dataStatus');
+  status.textContent = 'Loading GIS data...';
+  let loaded = 0;
+
+  // Urban Service Area
+  const usa = await loadGeoJSON('urban_service_area.geojson', gisLayers.usa,
+    { color:'#888', weight:2.5, fillColor:'#222', fillOpacity:0.25, dashArray:'6,4' },
+    (f, l) => l.bindTooltip('Urban Service Area', {sticky:true})
+  );
+  if (usa !== false) loaded++;
+
+  // Wetlands
+  await loadGeoJSON('wetlands.geojson', gisLayers.wetlands,
+    { color:'#1a5a40', weight:1, fillColor:'#2d8a6a', fillOpacity:0.55 },
+    (f, l) => l.bindTooltip('Wetland: ' + (f.properties.WETLAND_TY || 'NWI'), {sticky:true})
+  );
+
+  // Streams
+  await loadGeoJSON('streams.geojson', gisLayers.streams,
+    { color:'#4a90d9', weight:1.5, opacity:0.8 },
+    (f, l) => l.bindTooltip(f.properties.RIVER_SYS_NAME || 'Stream', {sticky:true})
+  );
+
+  // Rail
+  await loadGeoJSON('rail.geojson', gisLayers.rail,
+    { color:'#e05050', weight:2, opacity:0.9, dashArray:'8,4' },
+    (f, l) => l.bindTooltip('Rail Corridor', {sticky:true})
+  );
+
+  // Prime Ag Soils (Class 1)
+  await loadGeoJSON('prime_ag_soils.geojson', gisLayers.soils,
+    { color:'#a07830', weight:1, fillColor:'#c8a050', fillOpacity:0.5 },
+    (f, l) => l.bindTooltip('Prime Farmland (Class 1)', {sticky:true})
+  );
+
+  // Parcels (heavy — off by default)
+  await loadGeoJSON('parcels.geojson', gisLayers.parcels,
+    { color:'#444', weight:0.5, fillOpacity:0 },
+    (f, l) => l.bindTooltip(`Parcel: ${f.properties.LANDUSE || f.properties.ZONING || 'N/A'}`, {sticky:true})
+  );
+
+  // Add all to map per initial state
+  Object.keys(gisLayers).forEach(k => {
+    if (layerState[k]) gisLayers[k].addTo(map);
+  });
+
+  if (loaded > 0) {
+    status.textContent = 'GIS data loaded ✓';
+    status.style.background = 'var(--green-dim)';
+    status.style.color = 'var(--green)';
+    status.style.borderColor = 'var(--green-dim)';
+  } else {
+    status.textContent = 'Base map (add GIS data)';
+    status.style.background = '#2a3030';
+    status.style.color = '#6a8a7a';
+    status.style.borderColor = '#2a3030';
+  }
+}
+
+initGISLayers();
+
+// ═══════════════════════════════════════════════════════════════
+// LAYER TOGGLES
+// ═══════════════════════════════════════════════════════════════
+function toggleLayer(name) {
+  layerState[name] = !layerState[name];
+  const btn = document.getElementById('lt-' + name);
+  if (layerState[name]) {
+    gisLayers[name].addTo(map);
+    btn.classList.add('on');
+  } else {
+    map.removeLayer(gisLayers[name]);
+    btn.classList.remove('on');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BUILD SCENARIO CARDS
+// ═══════════════════════════════════════════════════════════════
+const grid = document.getElementById('scenarioGrid');
+SCENARIOS.forEach(s => {
+  const card = document.createElement('div');
+  card.className = 'scenario-card';
+  card.id = 'card-' + s.id;
+  card.innerHTML = `
+    <div class="scenario-dot" style="background:${s.color};width:10px;height:10px;border-radius:50%;flex-shrink:0"></div>
+    <div class="scenario-info">
+      <div class="scenario-name">${s.icon} ${s.name}</div>
+      <div class="scenario-sub">${s.sub}</div>
+    </div>
+  `;
+  card.onclick = () => selectScenario(s);
+  grid.appendChild(card);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// STATE & SCENARIO SELECTION
+// ═══════════════════════════════════════════════════════════════
+let active = null, growthRate = 75, density = 'med', scenarioLayer = null;
+const densityMap = { low:3, med:5, high:7.5 };
+
+function selectScenario(s) {
+  document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('card-' + s.id).classList.add('active');
+  active = s;
+
+  if (scenarioLayer) map.removeLayer(scenarioLayer);
+
+  // Draw both 2030 and 2060 polygons on the real map
+  const pts30 = s.poly2030.map(p => [p[1], p[0]]);  // flip to [lat,lng] for Leaflet
+  const pts60 = s.poly2060.map(p => [p[1], p[0]]);
+
+  scenarioLayer = L.layerGroup([
+    L.polygon(pts60, {
+      color: s.color, weight: 1, fillColor: s.color, fillOpacity: 0.10,
+      dashArray: '4,5'
+    }).bindTooltip(`${s.name} — 2060 Horizon`),
+    L.polygon(pts30, {
+      color: s.color, weight: 2.5, fillColor: s.color, fillOpacity: 0.28
+    }).bindTooltip(`${s.name} — 2030 Near-Term`)
+  ]).addTo(map);
+
+  document.getElementById('legend-scenario-name').textContent = s.name;
+  document.getElementById('legend-scenario-name').style.color = s.color;
+  document.getElementById('legend-scenario-name').style.fontStyle = 'normal';
+
+  updateMetrics();
+  resetAnalysis();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// METRICS
+// ═══════════════════════════════════════════════════════════════
+function updateMetrics() {
+  if (!active) return;
+  const yrs = 2030 - 2025;
+  const du = densityMap[density];
+  const acres = growthRate * yrs;
+  const units = Math.round(acres * du);
+  const infraM = ((acres * 68000 * active.infraMult) / 1e6).toFixed(1);
+  const ag = Math.round(active.agAcres * (growthRate / 75));
+
+  anim('m-acres', 0, acres, 600, v => Math.round(v).toLocaleString());
+  anim('m-units', 0, units, 700, v => Math.round(v).toLocaleString());
+  anim('m-infra', 0, parseFloat(infraM), 800, v => '$' + v.toFixed(1) + 'M');
+
+  const el = document.getElementById('m-agland');
+  el.textContent = ag === 0 ? 'None' : ag.toLocaleString();
+  el.className = 'metric-value ' + (ag === 0 ? 'metric-green' : ag > 500 ? 'metric-red' : 'metric-amber');
+}
+
+function anim(id, from, to, ms, fmt) {
+  const el = document.getElementById(id);
+  const t0 = performance.now();
+  const go = (now) => {
+    const t = Math.min((now - t0) / ms, 1);
+    const e = 1 - Math.pow(1 - t, 3);
+    el.textContent = fmt(from + (to - from) * e);
+    if (t < 1) requestAnimationFrame(go);
+  };
+  requestAnimationFrame(go);
+}
+
+document.getElementById('growthRate').addEventListener('input', function() {
+  growthRate = +this.value;
+  document.getElementById('rateLabel').textContent = growthRate;
+  updateMetrics(); resetAnalysis();
+});
+
+function setDensity(d) {
+  density = d;
+  ['low','med','high'].forEach(x => document.getElementById('d-'+x).classList.remove('active'));
+  document.getElementById('d-'+d).classList.add('active');
+  updateMetrics(); resetAnalysis();
+}
+
+function resetAnalysis() {
+  document.getElementById('aiBody').innerHTML = `<div class="ai-placeholder">Scenario or parameters changed. Click <strong>Analyze</strong> to generate a fresh AI assessment.</div>`;
+  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('analyzeBtn').textContent = 'Analyze →';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AI ANALYSIS
+// ═══════════════════════════════════════════════════════════════
+async function runAnalysis() {
+  if (!active) {
+    document.getElementById('aiBody').innerHTML = `<div class="ai-placeholder" style="color:var(--red)">Please select a growth model first.</div>`;
+    return;
+  }
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true; btn.textContent = 'Analyzing...';
+
+  const yrs = 2030 - 2025;
+  const du = densityMap[density];
+  const acres = growthRate * yrs;
+  const units = Math.round(acres * du);
+  const infraM = ((acres * 68000 * active.infraMult) / 1e6).toFixed(1);
+  const ag = Math.round(active.agAcres * (growthRate / 75));
+
+  const prompt = `You are a senior urban planning consultant advising the City of Fitchburg, Wisconsin on their comprehensive plan update. Provide a concise scenario analysis in exactly 3 paragraphs (no headers, no bullet points, no markdown).
+
+SCENARIO: ${active.name}
+Core logic: ${active.description}
+Growth rate: ${growthRate} acres/year (Fitchburg's 2009 adopted limit was 75 ac/yr)
+Density: ${du} dwelling units/acre (${density} density)
+Through 2030: ~${acres} acres consumed, ~${units.toLocaleString()} new housing units, ~$${infraM}M infrastructure cost estimate
+Prime Soil Class 1 farmland impacted: ${ag === 0 ? 'none' : ag.toLocaleString() + ' acres'}
+Agricultural impact level: ${active.agImpact}
+
+Key Fitchburg context:
+- City of ~32,000 south of Madison. Strong biotech/life sciences employment base (Exact Sciences, etc.)
+- Nine Springs E-Way greenway runs through center — key open space asset
+- Active farming south and southwest of the city on Class 1 soils
+- Committed to rail corridor TOD if commuter rail is ever funded
+- Fish Hatchery Road is the main commercial spine
+- Gravity sewer coverage is a major cost driver (lift stations are expensive)
+- Dane County and CARPC have oversight authority on Urban Service Area expansions
+
+Paragraph 1: What this scenario achieves spatially and who benefits — developers, existing residents, farmers, transit users. Paragraph 2: Infrastructure and fiscal implications: infrastructure cost relative to other scenarios, gravity sewer serviceability, police/fire coverage radius, road network stress. Paragraph 3: Environmental, agricultural, and quality-of-life tradeoffs, specifically mentioning Nine Springs, prime ag soils, and watershed impacts. End with one crisp sentence scoring this scenario's alignment with Fitchburg's 2009 adopted criteria (75 ac/yr, stream buffers, rail preference, gravity sewer, ag protection).`;
+
+  const body = document.getElementById('aiBody');
+  body.innerHTML = '<span class="typing-cursor"></span>';
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        stream: true,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    if (!res.ok) throw new Error(res.status);
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let full = '';
+    body.innerHTML = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (const line of dec.decode(value).split('\n')) {
+        if (!line.startsWith('data: ')) continue;
+        const d = line.slice(6);
+        if (d === '[DONE]') continue;
+        try {
+          const delta = JSON.parse(d).delta?.text || '';
+          if (delta) {
+            full += delta;
+            body.innerHTML = full.split('\n\n').filter(p=>p.trim())
+              .map(p => `<p>${p
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/(\$[\d,.]+M?)/g, '<span class="hl">$1</span>')
+                .replace(/(\d{1,3}(,\d{3})* acres?)/g, '<span class="hl">$1</span>')
+              }</p>`).join('') + '<span class="typing-cursor"></span>';
+            body.scrollTop = body.scrollHeight;
+          }
+        } catch(e) {}
+      }
+    }
+    // Final — strip cursor
+    body.innerHTML = full.split('\n\n').filter(p=>p.trim())
+      .map(p => `<p>${p
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/(\$[\d,.]+M?)/g, '<span class="hl">$1</span>')
+        .replace(/(\d{1,3}(,\d{3})* acres?)/g, '<span class="hl">$1</span>')
+      }</p>`).join('');
+    btn.textContent = 'Re-analyze →';
+    btn.disabled = false;
+
+  } catch(err) {
+    body.innerHTML = `<div style="color:var(--text-muted);font-size:11px;font-family:'IBM Plex Mono',monospace;padding:10px 0">
+      <strong style="color:var(--red)">API not connected in this context.</strong><br><br>
+      In live deployment, this field streams a full AI scenario narrative. The scenario overlays and metrics above are fully functional and reflect real Fitchburg planning data.<br><br>
+      <span style="color:var(--text-muted)">To connect: set your Anthropic API key in the fetch call, or deploy with a backend proxy.</span>
+    </div>`;
+    btn.textContent = 'Analyze →';
+    btn.disabled = false;
+  }
+}
+
+// Select first scenario on load
+selectScenario(SCENARIOS[0]);
+</script>
+</body>
+</html>

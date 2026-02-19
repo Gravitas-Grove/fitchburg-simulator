@@ -1,0 +1,8 @@
+import type { Request, Response, NextFunction } from 'express';
+
+export function requestLogger(req: Request, _res: Response, next: NextFunction) {
+  if (req.path.startsWith('/api')) {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  }
+  next();
+}

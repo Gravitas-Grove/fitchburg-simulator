@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.db
+*.db-shm
+*.db-wal
+data/raw/
+data/processed/
+server/data/
+.env
+!.env.example
