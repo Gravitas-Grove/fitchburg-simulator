@@ -1,4 +1,5 @@
 import { useMapStore } from '@/stores/mapStore';
+import { ExportButton } from '../export/ExportButton';
 
 export function Header() {
   const gisStatus = useMapStore((s) => s.gisStatus);
@@ -21,6 +22,7 @@ export function Header() {
       </div>
       <div className="flex items-center gap-2">
         <StatusPill status={gisStatus} />
+        <ExportButton />
         <button
           onClick={toggleSidebar}
           className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-[#1f2d3d] text-[#8896a7] hover:text-[#e8edf3] transition-all duration-200"
@@ -36,7 +38,7 @@ export function Header() {
 }
 
 function StatusPill({ status }: { status: string }) {
-  const isLoaded = status.includes('loaded') || status.includes('✓');
+  const isLoaded = status.includes('loaded') || status.includes('\u2713');
   return (
     <div
       className={`px-2 py-0.5 rounded-md text-[9px] font-mono tracking-wider uppercase border ${

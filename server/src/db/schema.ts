@@ -13,6 +13,8 @@ export const scenarios = sqliteTable('scenarios', {
   infraMult: real('infra_mult').notNull(),
   agAcres: integer('ag_acres').notNull(),
   agImpact: text('ag_impact').notNull(),
+  spatialProfile: text('spatial_profile', { mode: 'json' }).$type<Record<string, number>>(),
+  generationMethod: text('generation_method').default('procedural'),
 });
 
 export const chatSessions = sqliteTable('chat_sessions', {
@@ -32,6 +34,22 @@ export const chatMessages = sqliteTable('chat_messages', {
   content: text('content').notNull(),
   metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown>>(),
   createdAt: text('created_at').notNull(),
+});
+
+export const scenarioParcels = sqliteTable('scenario_parcels', {
+  id: text('id').primaryKey(),
+  scenarioId: text('scenario_id').notNull(),
+  parcelNo: text('parcel_no').notNull(),
+  address: text('address'),
+  owner: text('owner'),
+  schoolDistrict: text('school_district'),
+  areaAcres: real('area_acres'),
+  landValue: real('land_value'),
+  coordinates: text('coordinates', { mode: 'json' }).$type<number[][][]>(),
+  centroid: text('centroid', { mode: 'json' }).$type<[number, number]>(),
+  priorityScore: real('priority_score'),
+  developYear: integer('develop_year'),
+  scenarioReason: text('scenario_reason'),
 });
 
 export const preferences = sqliteTable('preferences', {

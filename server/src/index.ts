@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import path from 'path';
 import { config } from './config.js';
 import { aiRouter } from './routes/ai.js';
@@ -8,14 +9,32 @@ import { gisRouter } from './routes/gis.js';
 import { healthRouter } from './routes/health.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
+import { aiRateLimiter, generalRateLimiter } from './middleware/rateLimiter.js';
 import { initDb } from './db/index.js';
 
 const app = express();
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: false, // Handled by Vite in dev, configure properly in production
+  crossOriginEmbedderPolicy: false,
+}));
+
+// CORS
+app.use(cors({
+  origin: config.isDev ? true : config.allowedOrigins,
+  credentials: true,
+}));
+
+// Body parsing with size limit
+app.use(express.json({ limit: '100kb' }));
+
+// Request logging
 app.use(requestLogger);
+
+// Rate limiting
+app.use('/api/ai', aiRateLimiter);
+app.use('/api', generalRateLimiter);
 
 // API routes
 app.use('/api/ai', aiRouter);

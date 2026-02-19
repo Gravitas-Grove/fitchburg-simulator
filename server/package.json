@@ -10,12 +10,16 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@turf/turf": "^7.3.4",
     "better-sqlite3": "^11.7.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.38.4",
     "express": "^4.21.2",
-    "uuid": "^11.0.5"
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
+    "uuid": "^11.0.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

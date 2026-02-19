@@ -46,6 +46,14 @@ const config: Config = {
           red: '#ff6b6b',
           blue: '#4a90d9',
         },
+        // Letter grade colors
+        grade: {
+          A: '#22c55e',
+          B: '#84cc16',
+          C: '#eab308',
+          D: '#f97316',
+          F: '#ef4444',
+        },
       },
       fontFamily: {
         display: ['Instrument Serif', 'Georgia', 'serif'],

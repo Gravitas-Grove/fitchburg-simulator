@@ -1,29 +1,42 @@
 import { MapContainer, TileLayer } from 'react-leaflet';
 import { FITCHBURG_CENTER } from '@/data/scenarios';
+import { BASEMAPS } from '@/data/basemapConfig';
+import { useMapStore } from '@/stores/mapStore';
 import { ScenarioLayer } from './ScenarioLayer';
+import { ParcelLayer } from './ParcelLayer';
 import { GISLayers } from './GISLayers';
 import { MapLegend } from './MapLegend';
+import { BasemapSwitcher } from './BasemapSwitcher';
+import { TimelineSlider } from './TimelineSlider';
 import 'leaflet/dist/leaflet.css';
 
 export function MapView() {
+  const basemapId = useMapStore((s) => s.basemap);
+  const basemap = BASEMAPS[basemapId];
+
   return (
-    <div className="absolute inset-0">
+    <div className="absolute inset-0" data-basemap={basemapId}>
       <MapContainer
         center={FITCHBURG_CENTER}
         zoom={12}
         zoomControl={true}
+        preferCanvas={true}
         className="h-full w-full"
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
-          subdomains="abcd"
-          maxZoom={20}
+          key={basemapId}
+          url={basemap.url}
+          attribution={basemap.attribution}
+          subdomains={basemap.subdomains || ''}
+          maxZoom={basemap.maxZoom || 20}
         />
         <GISLayers />
         <ScenarioLayer />
+        <ParcelLayer />
       </MapContainer>
       <MapLegend />
+      <BasemapSwitcher />
+      <TimelineSlider />
     </div>
   );
 }

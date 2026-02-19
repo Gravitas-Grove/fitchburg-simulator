@@ -1,15 +1,15 @@
 import { Header } from './Header';
-import { ScenarioGrid } from '../scenarios/ScenarioGrid';
-import { GrowthRateSlider } from '../controls/GrowthRateSlider';
-import { DensityToggle } from '../controls/DensityToggle';
-import { LayerToggles } from '../controls/LayerToggles';
-import { MetricsGrid } from '../metrics/MetricsGrid';
+import { SidebarTabs } from './SidebarTabs';
+import { ScenariosTab } from '../scenarios/ScenariosTab';
+import { ScorecardPanel } from '../scorecard/ScorecardPanel';
+import { ComparePanel } from '../compare/ComparePanel';
 import { AIPanel } from '../ai/AIPanel';
 import { useMapStore } from '@/stores/mapStore';
 
 export function Sidebar() {
   const collapsed = useMapStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useMapStore((s) => s.toggleSidebar);
+  const activeTab = useMapStore((s) => s.activeTab);
 
   return (
     <aside
@@ -17,6 +17,7 @@ export function Sidebar() {
       style={{
         backgroundColor: 'hsl(213 27% 15%)',
         borderRight: '1px solid rgba(255,255,255,0.06)',
+        boxShadow: '4px 0 24px rgba(0,0,0,0.3)',
       }}
     >
       {/* Expand button when collapsed */}
@@ -34,49 +35,15 @@ export function Sidebar() {
       )}
 
       <Header />
+      <SidebarTabs />
 
       <div className="flex-1 overflow-y-auto min-h-0">
-        <SidebarSection label="Growth Model">
-          <ScenarioGrid />
-        </SidebarSection>
-
-        <SidebarSection>
-          <GrowthRateSlider />
-        </SidebarSection>
-
-        <SidebarSection label="Development Density">
-          <DensityToggle />
-        </SidebarSection>
-
-        <SidebarSection label="GIS Layers">
-          <LayerToggles />
-        </SidebarSection>
-
-        <SidebarSection label="Projected Impact · Through 2030">
-          <MetricsGrid />
-        </SidebarSection>
+        {activeTab === 'scenarios' && <ScenariosTab />}
+        {activeTab === 'scorecard' && <ScorecardPanel />}
+        {activeTab === 'compare' && <ComparePanel />}
       </div>
 
       <AIPanel />
     </aside>
-  );
-}
-
-function SidebarSection({
-  label,
-  children,
-}: {
-  label?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="px-5 py-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-      {label && (
-        <div className="font-mono text-[9px] text-[#5a6a7d] tracking-[1.5px] uppercase mb-2.5">
-          {label}
-        </div>
-      )}
-      {children}
-    </div>
   );
 }

@@ -1,7 +1,10 @@
 import { initDb, getDb } from './index.js';
-import { scenarios } from './schema.js';
+import { scenarios, scenarioParcels } from './schema.js';
+import { runSpatialAnalysis, computeScenarioBoundary } from '../services/spatialAnalysis.js';
+import { eq } from 'drizzle-orm';
+import { v4 as uuid } from 'uuid';
 
-// Same polygon generators as the client
+// Same polygon generators as the client (procedural fallback)
 function circle(lat: number, lng: number, r: number): [number, number][] {
   const pts: [number, number][] = [];
   for (let i = 0; i <= 36; i++) {
@@ -127,6 +130,7 @@ async function seed() {
   await initDb();
   const db = getDb();
 
+  // Seed base scenarios
   for (const s of SEED_SCENARIOS) {
     db.insert(scenarios).values({
       id: s.id,
@@ -143,8 +147,80 @@ async function seed() {
       agImpact: s.agImpact,
     }).onConflictDoNothing().run();
   }
-
   console.log('[seed] Seeded 7 built-in scenarios');
+
+  // Run spatial analysis on real GIS data
+  console.log('[seed] Starting spatial analysis...');
+  const startTime = Date.now();
+  const spatialResults = await runSpatialAnalysis(75);
+
+  if (spatialResults) {
+    // Clear existing parcel data
+    const existingCount = db.select().from(scenarioParcels).all().length;
+    if (existingCount > 0) {
+      console.log(`[seed] Clearing ${existingCount} existing parcel records...`);
+      // Use raw SQL for bulk delete since drizzle doesn't have deleteAll easily
+      db.delete(scenarioParcels).run();
+    }
+
+    let totalInserted = 0;
+
+    for (const [scenarioId, parcels] of spatialResults) {
+      if (parcels.length === 0) continue;
+
+      // Insert parcels in batches
+      const batchSize = 100;
+      for (let i = 0; i < parcels.length; i += batchSize) {
+        const batch = parcels.slice(i, i + batchSize);
+        for (const p of batch) {
+          db.insert(scenarioParcels).values({
+            id: uuid(),
+            scenarioId,
+            parcelNo: p.parcelNo,
+            address: p.address,
+            owner: p.owner,
+            schoolDistrict: p.schoolDistrict,
+            areaAcres: p.areaAcres,
+            landValue: p.landValue,
+            coordinates: p.coordinates,
+            centroid: p.centroid,
+            priorityScore: p.priorityScore,
+            developYear: p.developYear,
+            scenarioReason: p.scenarioReason,
+          }).run();
+        }
+        totalInserted += batch.length;
+      }
+
+      // Update scenario with real boundaries from parcel convex hulls
+      const hull2030 = computeScenarioBoundary(parcels, 2030);
+      const hull2060 = computeScenarioBoundary(parcels, 2060);
+
+      if (hull2030.length >= 3 && hull2060.length >= 3) {
+        db.update(scenarios)
+          .set({
+            poly2030: hull2030 as [number, number][],
+            poly2060: hull2060 as [number, number][],
+            generationMethod: 'spatial',
+          })
+          .where(eq(scenarios.id, scenarioId))
+          .run();
+      } else {
+        // Keep procedural polygons but mark as having spatial data
+        db.update(scenarios)
+          .set({ generationMethod: 'spatial' })
+          .where(eq(scenarios.id, scenarioId))
+          .run();
+      }
+
+      console.log(`[seed] ${scenarioId}: ${parcels.length} parcels inserted`);
+    }
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[seed] Spatial analysis complete: ${totalInserted} total parcels (${elapsed}s)`);
+  } else {
+    console.log('[seed] Spatial analysis skipped (GIS data not available). Using procedural polygons.');
+  }
 }
 
 seed().catch(console.error);

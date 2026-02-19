@@ -1,5 +1,6 @@
 import { Sidebar } from './Sidebar';
 import { MapView } from '../map/MapView';
+import { ParcelDetailPanel } from '../panels/ParcelDetailPanel';
 import { useMapStore } from '@/stores/mapStore';
 
 export function MainLayout() {
@@ -13,6 +14,7 @@ export function MainLayout() {
         style={{ marginLeft: sidebarCollapsed ? -392 : 0 }}
       >
         <MapView />
+        <ParcelDetailPanel />
       </div>
     </div>
   );

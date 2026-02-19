@@ -1,3 +1,5 @@
+import type { SpatialProfile } from './scorecard';
+
 export type DensityLevel = 'low' | 'med' | 'high';
 
 export type AgImpact = 'none' | 'very low' | 'low' | 'medium-low' | 'medium' | 'high';
@@ -14,6 +16,7 @@ export interface Scenario {
   agAcres: number;
   agImpact: AgImpact;
   description: string;
+  spatialProfile?: SpatialProfile | null;
 }
 
 export interface MetricsResult {

@@ -4,7 +4,7 @@ import { apiStreamUrl } from '@/lib/api';
 import type { ChatMessage } from '@/types/chat';
 
 interface ScenarioContext {
-  scenarioId: string;
+  scenarioId?: string;
   scenarioName: string;
   description: string;
   growthRate: number;
@@ -14,6 +14,9 @@ interface ScenarioContext {
   infraM: number;
   agLand: number;
   agImpact: string;
+  scorecard?: Record<string, unknown>;
+  allScenarios?: { id: string; name: string }[];
+  [key: string]: unknown;
 }
 
 export function useStreamingChat() {

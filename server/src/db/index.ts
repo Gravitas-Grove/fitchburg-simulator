@@ -69,6 +69,40 @@ export async function initDb() {
       visible_layers TEXT,
       last_scenario_id TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS scenario_parcels (
+      id TEXT PRIMARY KEY,
+      scenario_id TEXT NOT NULL,
+      parcel_no TEXT NOT NULL,
+      address TEXT,
+      owner TEXT,
+      school_district TEXT,
+      area_acres REAL,
+      land_value REAL,
+      coordinates TEXT,
+      centroid TEXT,
+      priority_score REAL,
+      develop_year INTEGER,
+      scenario_reason TEXT
+    );
+  `);
+
+  // Add new columns if they don't exist (safe migration)
+  try {
+    sqlite.exec(`ALTER TABLE scenarios ADD COLUMN spatial_profile TEXT`);
+  } catch { /* column already exists */ }
+  try {
+    sqlite.exec(`ALTER TABLE scenarios ADD COLUMN generation_method TEXT DEFAULT 'procedural'`);
+  } catch { /* column already exists */ }
+
+  // Create indices for performance
+  sqlite.exec(`
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id);
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at);
+    CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated_at ON chat_sessions(updated_at);
+    CREATE INDEX IF NOT EXISTS idx_chat_sessions_scenario_id ON chat_sessions(scenario_id);
+    CREATE INDEX IF NOT EXISTS idx_scenario_parcels_scenario_year ON scenario_parcels(scenario_id, develop_year);
+    CREATE INDEX IF NOT EXISTS idx_scenario_parcels_scenario_id ON scenario_parcels(scenario_id);
   `);
 
   console.log('[db] SQLite database initialized at', config.dbPath);

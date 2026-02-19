@@ -13,4 +13,9 @@ export const config = {
   gisDataPath: process.env.GIS_DATA_PATH || path.resolve(__dirname, '..', '..', 'data', 'processed'),
   clientDistPath: path.resolve(__dirname, '..', '..', 'client', 'dist'),
   isDev: process.env.NODE_ENV !== 'production',
+  aiModel: process.env.AI_MODEL || 'claude-sonnet-4-20250514',
+  maxTokens: parseInt(process.env.AI_MAX_TOKENS || '4096', 10),
+  allowedOrigins: process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : ['http://localhost:5173', 'http://localhost:3001'],
 };

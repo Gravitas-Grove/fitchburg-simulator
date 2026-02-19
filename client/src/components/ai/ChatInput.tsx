@@ -2,34 +2,55 @@ import { useState, useCallback } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { useScenarioStore } from '@/stores/scenarioStore';
 import { useMetrics } from '@/hooks/useMetrics';
+import { useScorecard } from '@/hooks/useScorecard';
 import { useStreamingChat } from '@/hooks/useStreamingChat';
 
 const QUICK_ACTIONS_WITH_SCENARIO = [
   'Analyze this scenario',
-  'Infrastructure risks?',
-  'Compare scenarios',
+  'Constraint violations?',
+  'Compare all scenarios',
+  'Stakeholder impacts?',
+  'What if density changed?',
   'What would CARPC say?',
 ];
 
 const QUICK_ACTIONS_NO_SCENARIO = [
   'Help me choose a scenario',
   'What factors matter most?',
+  'Compare all scenarios',
 ];
 
 export function ChatInput() {
   const [input, setInput] = useState('');
   const isStreaming = useChatStore((s) => s.isStreaming);
   const activeScenario = useScenarioStore((s) => s.activeScenario);
+  const scenarios = useScenarioStore((s) => s.scenarios);
   const growthRate = useScenarioStore((s) => s.growthRate);
   const density = useScenarioStore((s) => s.density);
   const metrics = useMetrics();
+  const scorecard = useScorecard();
   const { sendMessage } = useStreamingChat();
 
   const quickActions = activeScenario ? QUICK_ACTIONS_WITH_SCENARIO : QUICK_ACTIONS_NO_SCENARIO;
 
   const buildContext = useCallback(() => {
     if (!activeScenario || !metrics) return undefined;
-    return {
+
+    const ctx: {
+      scenarioId: string;
+      scenarioName: string;
+      description: string;
+      growthRate: number;
+      density: string;
+      acres: number;
+      units: number;
+      infraM: number;
+      agLand: number;
+      agImpact: string;
+      allScenarios: { id: string; name: string }[];
+      scorecard?: Record<string, unknown>;
+      [key: string]: unknown;
+    } = {
       scenarioId: activeScenario.id,
       scenarioName: activeScenario.name,
       description: activeScenario.description,
@@ -40,8 +61,58 @@ export function ChatInput() {
       infraM: metrics.infraM,
       agLand: metrics.agLand,
       agImpact: activeScenario.agImpact,
+      allScenarios: scenarios.map((s) => ({ id: s.id, name: s.name })),
     };
-  }, [activeScenario, growthRate, density, metrics]);
+
+    // Include full scorecard data if available
+    if (scorecard) {
+      const dims = scorecard.dimensions;
+      const fiscal = dims.find((d) => d.id === 'fiscal');
+      const env = dims.find((d) => d.id === 'environmental');
+      const social = dims.find((d) => d.id === 'social');
+      const transport = dims.find((d) => d.id === 'transportation');
+
+      ctx.scorecard = {
+        overallGrade: scorecard.overallGrade,
+        overallScore: scorecard.overallScore,
+        fiscal: {
+          grade: fiscal?.grade,
+          score: fiscal?.score,
+          costToServe: fiscal?.metrics.find((m) => m.id === 'cost-to-serve')?.value,
+          infraCostPerUnit: fiscal?.metrics.find((m) => m.id === 'infra-cost-unit')?.value,
+          taxRevenue: fiscal?.metrics.find((m) => m.id === 'tax-revenue')?.value,
+          debtCapacity: fiscal?.metrics.find((m) => m.id === 'debt-capacity')?.value,
+        },
+        environmental: {
+          grade: env?.grade,
+          score: env?.score,
+          wetlandAcres: env?.metrics.find((m) => m.id === 'wetland-impact')?.value,
+          floodplainAcres: env?.metrics.find((m) => m.id === 'floodplain')?.value,
+          bufferViolations: env?.metrics.find((m) => m.id === 'buffer-violations')?.value,
+          imperviousPct: env?.metrics.find((m) => m.id === 'impervious')?.value,
+        },
+        social: {
+          grade: social?.grade,
+          score: social?.score,
+          totalUnits: social?.metrics.find((m) => m.id === 'total-units')?.value,
+          affordableUnits: social?.metrics.find((m) => m.id === 'affordable-units')?.value,
+          affordablePct: social?.metrics.find((m) => m.id === 'affordable-units')?.value
+            ? (social?.metrics.find((m) => m.id === 'affordable-units')?.value ?? 0) / Math.max(social?.metrics.find((m) => m.id === 'total-units')?.value ?? 1, 1)
+            : 0,
+          jobsHousingRatio: social?.metrics.find((m) => m.id === 'jobs-housing')?.value,
+        },
+        transportation: {
+          grade: transport?.grade,
+          score: transport?.score,
+          dailyVMT: transport?.metrics.find((m) => m.id === 'daily-vmt')?.value,
+          transitPct: transport?.metrics.find((m) => m.id === 'transit-access')?.value,
+          roadMiles: transport?.metrics.find((m) => m.id === 'road-miles')?.value,
+        },
+      };
+    }
+
+    return ctx;
+  }, [activeScenario, growthRate, density, metrics, scorecard, scenarios]);
 
   const handleSend = useCallback(
     (text: string) => {

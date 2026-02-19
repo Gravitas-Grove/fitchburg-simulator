@@ -1,5 +1,5 @@
 import type { ChatMessage as ChatMessageType } from '@/types/chat';
-import { highlightMetrics } from '@/lib/formatters';
+import { renderAIMarkdown } from '@/lib/formatters';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -26,20 +26,11 @@ export function ChatMessage({ message }: ChatMessageProps) {
     );
   }
 
-  // Assistant
-  const paragraphs = message.content
-    .split('\n\n')
-    .filter((p) => p.trim());
-
+  // Assistant — render with full markdown support
   return (
-    <div className="space-y-2.5">
-      {paragraphs.map((p, i) => (
-        <p
-          key={i}
-          className="text-xs leading-relaxed text-[#8896a7] [&_strong]:text-[#e8edf3]"
-          dangerouslySetInnerHTML={{ __html: highlightMetrics(p) }}
-        />
-      ))}
-    </div>
+    <div
+      className="ai-response text-xs leading-relaxed text-[#8896a7] [&_strong]:text-[#e8edf3] space-y-2"
+      dangerouslySetInnerHTML={{ __html: renderAIMarkdown(message.content) }}
+    />
   );
 }

@@ -39,6 +39,13 @@
     --input: 0 0% 100% / 0.06;
     --ring: var(--accent-teal);
     --radius: 0.5rem;
+
+    /* Letter grade colors */
+    --grade-a: 142 71% 45%;
+    --grade-b: 82 78% 44%;
+    --grade-c: 45 93% 47%;
+    --grade-d: 25 95% 53%;
+    --grade-f: 0 84% 60%;
   }
 
   * {
@@ -119,4 +126,150 @@
 
 .map-transition {
   transition: margin-left 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Print styles */
+@media print {
+  body { background: white !important; color: #1a1a1a !important; overflow: visible !important; }
+  .sidebar-transition { display: none !important; }
+  .leaflet-control-zoom, .leaflet-control-attribution { display: none !important; }
+  .no-print { display: none !important; }
+}
+
+/* Basemap-conditional Leaflet control colors */
+[data-basemap="light"] .leaflet-control-zoom a {
+  background: rgba(255,255,255,0.9) !important;
+  color: #475569 !important;
+  border-bottom-color: rgba(0,0,0,0.1) !important;
+}
+[data-basemap="light"] .leaflet-control-zoom a:hover {
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+}
+[data-basemap="light"] .leaflet-control-zoom {
+  border-color: rgba(0,0,0,0.15) !important;
+}
+
+/* Tab content transitions */
+.tab-content-enter {
+  animation: tabFadeIn 200ms ease-out;
+}
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Grade badge pop animation */
+.grade-badge-enter {
+  animation: gradeBadgePop 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes gradeBadgePop {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Accordion expand/collapse */
+.accordion-content {
+  overflow: hidden;
+  transition: max-height 300ms ease-out, opacity 200ms ease-out;
+}
+
+/* AI response structured content */
+.ai-response .ai-h2 {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8edf3;
+  margin: 12px 0 6px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.ai-response .ai-h3 {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e8edf3;
+  margin: 10px 0 4px 0;
+}
+.ai-response .ai-h4 {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: #8896a7;
+  margin: 8px 0 4px 0;
+}
+.ai-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  margin: 8px 0;
+}
+.ai-table th {
+  text-align: left;
+  padding: 4px 8px;
+  color: #8896a7;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ai-table td {
+  padding: 3px 8px;
+  color: #e8edf3;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.ai-table tr:hover td {
+  background: rgba(255,255,255,0.02);
+}
+
+/* Scenario card select bump */
+.scenario-card-active {
+  animation: selectBump 150ms ease-out;
+}
+@keyframes selectBump {
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+/* Timeline slider thumb */
+.timeline-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #4ecdc4;
+  box-shadow: 0 0 6px rgba(78, 205, 196, 0.4);
+  cursor: pointer;
+  border: 2px solid #0d1117;
+}
+.timeline-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #4ecdc4;
+  box-shadow: 0 0 6px rgba(78, 205, 196, 0.4);
+  cursor: pointer;
+  border: 2px solid #0d1117;
+}
+
+/* Parcel tooltip */
+.parcel-tooltip {
+  background: rgba(12, 17, 23, 0.95) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+  color: #e8edf3 !important;
+}
+.parcel-tooltip::before {
+  border-top-color: rgba(12, 17, 23, 0.95) !important;
+}
+
+/* Parcel detail panel slide-in */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.parcel-panel-enter {
+  animation: slideInRight 250ms ease-out;
 }

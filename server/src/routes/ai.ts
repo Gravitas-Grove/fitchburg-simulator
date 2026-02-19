@@ -4,6 +4,7 @@ import { getDb } from '../db/index.js';
 import { chatSessions, chatMessages } from '../db/schema.js';
 import { eq, desc } from 'drizzle-orm';
 import { streamChatResponse } from '../services/claude.js';
+import { detectIntent } from '../services/promptService.js';
 import { config } from '../config.js';
 
 export const aiRouter = Router();
@@ -14,6 +15,10 @@ aiRouter.post('/chat', async (req, res) => {
 
   if (!message || typeof message !== 'string') {
     return res.status(400).json({ error: 'message is required' });
+  }
+
+  if (message.length > 5000) {
+    return res.status(400).json({ error: 'message too long (max 5000 characters)' });
   }
 
   // Set SSE headers early
@@ -31,6 +36,9 @@ aiRouter.post('/chat', async (req, res) => {
   try {
     const db = getDb();
     const now = new Date().toISOString();
+
+    // Detect intent for logging
+    const intent = detectIntent(message);
 
     // Get or create session
     let sid = sessionId;
@@ -57,13 +65,13 @@ aiRouter.post('/chat', async (req, res) => {
         .run();
     }
 
-    // Save user message
+    // Save user message with intent metadata
     db.insert(chatMessages).values({
       id: uuid(),
       sessionId: sid,
       role: 'user',
       content: message,
-      metadata: scenarioContext ? (scenarioContext as Record<string, unknown>) : null,
+      metadata: { ...((scenarioContext || {}) as Record<string, unknown>), intent },
       createdAt: now,
     }).run();
 
@@ -95,6 +103,81 @@ aiRouter.post('/chat', async (req, res) => {
     res.end();
   } catch (err: any) {
     console.error('[ai] Stream error:', err.message);
+    res.write(`data: ${JSON.stringify({ delta: `\n\nError: ${err.message}` })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+  }
+});
+
+// POST /api/ai/analyze — deep single-scenario analysis
+aiRouter.post('/analyze', async (req, res) => {
+  const { message, scenarioContext } = req.body;
+
+  if (!scenarioContext?.scenarioName) {
+    return res.status(400).json({ error: 'scenarioContext with scenarioName is required' });
+  }
+
+  // Rewrite as analysis request and stream
+  const analysisMessage = message || `Provide a detailed analysis of the ${scenarioContext.scenarioName} scenario.`;
+
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  if (!config.anthropicApiKey) {
+    res.write(`data: ${JSON.stringify({ delta: 'AI service not configured.' })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    return res.end();
+  }
+
+  try {
+    const fullResponse = await streamChatResponse(
+      res,
+      [{ role: 'user', content: analysisMessage }],
+      scenarioContext
+    );
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (err: any) {
+    console.error('[ai] Analysis error:', err.message);
+    res.write(`data: ${JSON.stringify({ delta: `\n\nError: ${err.message}` })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+  }
+});
+
+// POST /api/ai/compare — multi-scenario comparison
+aiRouter.post('/compare', async (req, res) => {
+  const { message, scenarioContext } = req.body;
+
+  const compareMessage = message || 'Compare all growth scenarios and identify the optimal tradeoffs.';
+
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  if (!config.anthropicApiKey) {
+    res.write(`data: ${JSON.stringify({ delta: 'AI service not configured.' })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    return res.end();
+  }
+
+  try {
+    const fullResponse = await streamChatResponse(
+      res,
+      [{ role: 'user', content: compareMessage }],
+      scenarioContext || null
+    );
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (err: any) {
+    console.error('[ai] Compare error:', err.message);
     res.write(`data: ${JSON.stringify({ delta: `\n\nError: ${err.message}` })}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();
